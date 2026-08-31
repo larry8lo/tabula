@@ -1,0 +1,112 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tabula</title>
+<link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+
+<div class="app">
+  <header class="app-header">
+    <h1>Tabula</h1>
+  </header>
+
+  <div class="toolbar">
+    <div class="toolbar-group">
+      <button id="btn-new-task" class="btn btn-primary">+ New Task</button>
+
+      <div class="dropdown" id="quick-add-dropdown">
+        <button id="btn-quick-add" class="btn">Quick Add ▾</button>
+        <div class="dropdown-menu" id="quick-add-menu" hidden>
+          <button class="dropdown-item" data-preset="15m">In 15 minutes</button>
+          <button class="dropdown-item" data-preset="1h">In 1 hour</button>
+          <button class="dropdown-item" data-preset="4h">In 4 hours</button>
+          <button class="dropdown-item" data-preset="eod">End of today</button>
+          <button class="dropdown-item" data-preset="3d">In 3 days</button>
+          <button class="dropdown-item" data-preset="eow">End of week</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="toolbar-group toolbar-group-selection">
+      <span id="selection-count" class="selection-count" hidden></span>
+      <button id="btn-bulk-complete" class="btn btn-success" disabled>Complete</button>
+      <button id="btn-bulk-cancel" class="btn btn-warning" disabled>Cancel</button>
+      <button id="btn-bulk-delete" class="btn btn-danger" disabled>Delete</button>
+    </div>
+  </div>
+
+  <table class="task-table">
+    <thead>
+      <tr>
+        <th class="col-name">Task</th>
+        <th class="col-due">Due</th>
+        <th class="col-status">Status</th>
+        <th class="col-actions"></th>
+      </tr>
+    </thead>
+    <tbody id="task-list">
+      <!-- rows injected by app.js -->
+    </tbody>
+  </table>
+  <p id="empty-state" class="empty-state" hidden>No tasks yet. Create one above.</p>
+</div>
+
+<!-- New task modal (generic creation) -->
+<div class="modal-overlay" id="modal-new-task" hidden>
+  <div class="modal">
+    <h2>New Task</h2>
+    <label class="field">
+      <span>Task name</span>
+      <input type="text" id="new-task-name" placeholder="e.g. Submit expense report">
+    </label>
+    <label class="field">
+      <span>Due date &amp; time</span>
+      <input type="datetime-local" id="new-task-due">
+    </label>
+    <p class="field-error" id="new-task-error" hidden></p>
+    <div class="modal-actions">
+      <button class="btn" data-close-modal>Cancel</button>
+      <button class="btn btn-primary" id="new-task-save">Create Task</button>
+    </div>
+  </div>
+</div>
+
+<!-- Quick-add name modal (due time is preset) -->
+<div class="modal-overlay" id="modal-quick-add" hidden>
+  <div class="modal">
+    <h2>New Task <span id="quick-add-preset-label" class="modal-subtitle"></span></h2>
+    <label class="field">
+      <span>Task name</span>
+      <input type="text" id="quick-add-name" placeholder="e.g. Call the dentist">
+    </label>
+    <p class="field-error" id="quick-add-error" hidden></p>
+    <div class="modal-actions">
+      <button class="btn" data-close-modal>Cancel</button>
+      <button class="btn btn-primary" id="quick-add-save">Create Task</button>
+    </div>
+  </div>
+</div>
+
+<!-- Edit due date modal -->
+<div class="modal-overlay" id="modal-edit-due" hidden>
+  <div class="modal">
+    <h2>Change Due Date</h2>
+    <p class="modal-subtitle" id="edit-due-task-name"></p>
+    <label class="field">
+      <span>Due date &amp; time</span>
+      <input type="datetime-local" id="edit-due-input">
+    </label>
+    <p class="field-error" id="edit-due-error" hidden></p>
+    <div class="modal-actions">
+      <button class="btn" data-close-modal>Cancel</button>
+      <button class="btn btn-primary" id="edit-due-save">Save</button>
+    </div>
+  </div>
+</div>
+
+<script src="/static/app.js"></script>
+</body>
+</html>
