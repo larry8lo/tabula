@@ -138,6 +138,13 @@ body {
 }
 .dropdown-item:hover { background: var(--row-hover); }
 
+.dropdown-item-custom {
+  margin-top: 4px;
+  padding-top: 8px;
+  border-top: 1px solid var(--border);
+  font-weight: 600;
+}
+
 .task-table {
   width: 100%;
   border-collapse: collapse;
@@ -187,25 +194,80 @@ body {
 }
 .task-name-btn:hover { color: var(--accent); text-decoration: underline; }
 
+.task-name-input {
+  width: 100%;
+  min-width: 120px;
+  padding: 3px 6px;
+  border: 1px solid var(--accent);
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 600;
+  font-family: inherit;
+  color: var(--text);
+}
+.task-name-input:focus { outline: none; }
+
+.notes-indicator {
+  margin-left: 6px;
+  font-size: 12px;
+  border: none;
+  background: none;
+  padding: 0;
+  cursor: pointer;
+  opacity: 0.75;
+  vertical-align: middle;
+}
+.notes-indicator:hover { opacity: 1; }
+
 .task-row.status-complete .task-name-btn,
 .task-row.status-canceled .task-name-btn {
   color: var(--text-muted);
   text-decoration: line-through;
 }
 
-.due-cell { color: var(--text-muted); font-variant-numeric: tabular-nums; }
-.due-cell.overdue { color: var(--danger); font-weight: 600; }
+.due-cell-btn {
+  background: none;
+  border: none;
+  padding: 0;
+  font: inherit;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+  cursor: pointer;
+}
+.due-cell-btn:hover { color: var(--accent); text-decoration: underline; }
+
+.task-row.overdue .task-name-btn,
+.task-row.overdue .due-cell-btn {
+  color: var(--danger);
+  font-weight: 600;
+}
 
 .badge {
   display: inline-block;
   padding: 3px 10px;
+  border: none;
   border-radius: 999px;
   font-size: 12px;
   font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
 }
+.badge:hover { opacity: 0.85; }
 .badge-in_progress { background: var(--progress-bg); color: var(--progress-text); }
 .badge-complete { background: var(--success-bg); color: var(--success); }
 .badge-canceled { background: var(--danger-bg); color: var(--danger); }
+
+.status-popover {
+  position: fixed;
+  z-index: 60;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(20, 24, 32, 0.12);
+  min-width: 150px;
+  padding: 4px;
+}
+.status-popover[hidden] { display: none; }
 
 .row-actions {
   display: flex;
@@ -227,9 +289,29 @@ body {
   color: var(--text-muted);
 }
 .icon-btn:hover { background: var(--row-hover); border-color: var(--border); }
+.icon-btn.icon-edit:hover { color: var(--accent); }
 .icon-btn.icon-complete:hover { color: var(--success); }
 .icon-btn.icon-cancel:hover { color: var(--warning); }
 .icon-btn.icon-delete:hover { color: var(--danger); }
+
+.notes-popup {
+  position: fixed;
+  max-width: 320px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(20, 24, 32, 0.12);
+  padding: 12px 14px;
+  z-index: 60;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--text);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+.notes-popup[hidden] { display: none; }
+.notes-popup a { color: var(--accent); }
+.notes-popup a:hover { text-decoration: underline; }
 
 .empty-state {
   text-align: center;
@@ -277,21 +359,30 @@ body {
   display: block;
   margin-top: 14px;
 }
-.field span {
+.field > span {
   display: block;
   font-size: 12px;
   font-weight: 600;
   color: var(--text-muted);
   margin-bottom: 4px;
 }
-.field input {
+.field-optional {
+  font-weight: 400;
+  text-transform: none;
+  letter-spacing: normal;
+}
+.field input,
+.field textarea {
   width: 100%;
   padding: 8px 10px;
   border: 1px solid var(--border);
   border-radius: 6px;
   font-size: 14px;
+  font-family: inherit;
+  resize: vertical;
 }
-.field input:focus {
+.field input:focus,
+.field textarea:focus {
   outline: none;
   border-color: var(--accent);
 }
@@ -301,6 +392,106 @@ body {
   font-size: 12px;
   margin: 10px 0 0;
 }
+
+/* Custom date-time picker (renders identically across browsers) */
+.datetime-field {
+  position: relative;
+}
+
+.datetime-trigger {
+  width: 100%;
+  text-align: left;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font-size: 14px;
+  font-family: inherit;
+  background: var(--panel);
+  color: var(--text);
+  cursor: pointer;
+}
+.datetime-trigger:hover { background: var(--row-hover); }
+.datetime-trigger.is-empty { color: var(--text-muted); }
+.datetime-trigger:focus { outline: none; border-color: var(--accent); }
+
+.datetime-popover {
+  position: fixed;
+  z-index: 70;
+  width: 260px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(20, 24, 32, 0.12);
+  padding: 10px;
+}
+.datetime-popover[hidden] { display: none; }
+
+.datetime-nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+.datetime-nav-btn {
+  border: none;
+  background: none;
+  width: 24px;
+  height: 24px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 14px;
+  color: var(--text-muted);
+}
+.datetime-nav-btn:hover { background: var(--row-hover); color: var(--text); }
+.datetime-month-label {
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.datetime-weekdays,
+.datetime-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 2px;
+}
+.datetime-weekdays span {
+  text-align: center;
+  font-size: 11px;
+  color: var(--text-muted);
+  padding-bottom: 4px;
+}
+.datetime-day {
+  border: none;
+  background: none;
+  border-radius: 6px;
+  padding: 6px 0;
+  font-size: 13px;
+  cursor: pointer;
+  color: var(--text);
+}
+.datetime-day:hover { background: var(--row-hover); }
+.datetime-day.is-today { font-weight: 700; color: var(--accent); }
+.datetime-day.is-selected { background: var(--accent); color: #fff; }
+
+.datetime-time-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid var(--border);
+}
+.datetime-select {
+  padding: 6px 4px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font-size: 13px;
+  font-family: inherit;
+  background: var(--panel);
+  color: var(--text);
+}
+.datetime-colon { color: var(--text-muted); font-weight: 600; }
 
 .modal-actions {
   display: flex;

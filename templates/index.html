@@ -15,17 +15,16 @@
 
   <div class="toolbar">
     <div class="toolbar-group">
-      <button id="btn-new-task" class="btn btn-primary">+ New Task</button>
-
       <div class="dropdown" id="quick-add-dropdown">
-        <button id="btn-quick-add" class="btn">Quick Add ▾</button>
+        <button id="btn-quick-add" class="btn btn-primary">+ New Task ▾</button>
         <div class="dropdown-menu" id="quick-add-menu" hidden>
           <button class="dropdown-item" data-preset="15m">In 15 minutes</button>
           <button class="dropdown-item" data-preset="1h">In 1 hour</button>
           <button class="dropdown-item" data-preset="4h">In 4 hours</button>
           <button class="dropdown-item" data-preset="eod">End of today</button>
-          <button class="dropdown-item" data-preset="3d">In 3 days</button>
+          <button class="dropdown-item" data-preset="eot">End of tomorrow</button>
           <button class="dropdown-item" data-preset="eow">End of week</button>
+          <button class="dropdown-item dropdown-item-custom" id="btn-quick-add-custom">Custom…</button>
         </div>
       </div>
     </div>
@@ -62,9 +61,13 @@
       <span>Task name</span>
       <input type="text" id="new-task-name" placeholder="e.g. Submit expense report">
     </label>
-    <label class="field">
+    <div class="field">
       <span>Due date &amp; time</span>
-      <input type="datetime-local" id="new-task-due">
+      <div class="datetime-field" id="new-task-due-field"></div>
+    </div>
+    <label class="field">
+      <span>Notes <span class="field-optional">(optional)</span></span>
+      <textarea id="new-task-notes" rows="3" placeholder="Any extra detail…"></textarea>
     </label>
     <p class="field-error" id="new-task-error" hidden></p>
     <div class="modal-actions">
@@ -90,14 +93,14 @@
   </div>
 </div>
 
-<!-- Edit due date modal -->
+<!-- Edit notes modal -->
 <div class="modal-overlay" id="modal-edit-due" hidden>
   <div class="modal">
-    <h2>Change Due Date</h2>
+    <h2>Edit Notes</h2>
     <p class="modal-subtitle" id="edit-due-task-name"></p>
     <label class="field">
-      <span>Due date &amp; time</span>
-      <input type="datetime-local" id="edit-due-input">
+      <span>Notes <span class="field-optional">(optional)</span></span>
+      <textarea id="edit-notes-input" rows="3" placeholder="Any extra detail…"></textarea>
     </label>
     <p class="field-error" id="edit-due-error" hidden></p>
     <div class="modal-actions">
@@ -105,6 +108,18 @@
       <button class="btn btn-primary" id="edit-due-save">Save</button>
     </div>
   </div>
+</div>
+
+<!-- Notes popup -->
+<div class="notes-popup" id="notes-popup" hidden>
+  <div id="notes-popup-content"></div>
+</div>
+
+<!-- Status change popover -->
+<div class="status-popover" id="status-popover" hidden>
+  <button class="dropdown-item" data-status="in_progress">In Progress</button>
+  <button class="dropdown-item" data-status="complete">Complete</button>
+  <button class="dropdown-item" data-status="canceled">Canceled</button>
 </div>
 
 <script src="/static/app.js"></script>
