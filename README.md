@@ -6,8 +6,19 @@ A simple task/reminder web app: toolbar + sortable task table, backed by SQLite.
 
 Requires Python 3.8+.
 
+**Easiest**: `./start.sh` (see [Running in the background](#running-in-the-background)
+below) creates a `.venv` virtualenv next to `app.py` and installs
+dependencies into it automatically the first time it runs — no manual setup
+needed, and it works unmodified on externally managed Python installs (PEP
+668, e.g. Homebrew Python or Debian/Ubuntu system Python) where a bare
+`pip install` is blocked.
+
+**Manual / interactive dev server**:
+
 ```bash
 cd tabula
+python3 -m venv .venv
+source .venv/bin/activate
 pip install -r requirements.txt
 python3 app.py
 ```
@@ -42,6 +53,17 @@ first time the app starts.
   Each task notifies once; editing its due date re-arms it. macOS-only —
   the first notification may require granting notification permission to
   the terminal/Python process in System Settings → Notifications.
+
+## Running in the background
+
+```bash
+./start.sh   # sets up .venv (first run only), starts the app, returns to the shell
+./stop.sh    # stops it
+```
+
+`start.sh` refuses to start a second instance if one is already running, and
+logs stdout/stderr to `~/.tabula/tabula.log`. `stop.sh` waits for a graceful
+shutdown before force-killing.
 
 ## Notes
 
