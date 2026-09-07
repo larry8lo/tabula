@@ -2,6 +2,7 @@
   const state = {
     tasks: [],
     selectedIds: new Set(),
+    expandedIds: new Set(),
   };
 
   // ---------- Elements ----------
@@ -25,18 +26,35 @@
   const quickAddMenu = document.getElementById("quick-add-menu");
   const modalQuickAdd = document.getElementById("modal-quick-add");
   const quickAddName = document.getElementById("quick-add-name");
+  const quickAddNotes = document.getElementById("quick-add-notes");
   const quickAddError = document.getElementById("quick-add-error");
   const quickAddSave = document.getElementById("quick-add-save");
   const quickAddPresetLabel = document.getElementById("quick-add-preset-label");
 
   const modalEditDue = document.getElementById("modal-edit-due");
+  const editTaskNameInput = document.getElementById("edit-task-name-input");
+  const editDueField = document.getElementById("edit-due-field");
   const editNotesInput = document.getElementById("edit-notes-input");
   const editDueError = document.getElementById("edit-due-error");
   const editDueSave = document.getElementById("edit-due-save");
-  const editDueTaskName = document.getElementById("edit-due-task-name");
 
-  const notesPopup = document.getElementById("notes-popup");
-  const notesPopupContent = document.getElementById("notes-popup-content");
+  const btnRecurring = document.getElementById("btn-recurring");
+  const recurringMenu = document.getElementById("recurring-menu");
+  const btnManageRecurring = document.getElementById("btn-manage-recurring");
+  const modalRecurring = document.getElementById("modal-recurring");
+  const recurringModalHeading = document.getElementById("recurring-modal-heading");
+  const recurringEditTaskName = document.getElementById("recurring-edit-task-name");
+  const recurringTypeLabel = document.getElementById("recurring-type-label");
+  const recurringNameField = document.getElementById("recurring-name-field");
+  const recurringNotesField = document.getElementById("recurring-notes-field");
+  const recurringName = document.getElementById("recurring-name");
+  const recurringNotes = document.getElementById("recurring-notes");
+  const recurringScheduleFields = document.getElementById("recurring-schedule-fields");
+  const recurringError = document.getElementById("recurring-error");
+  const recurringSave = document.getElementById("recurring-save");
+  const modalManageRecurring = document.getElementById("modal-manage-recurring");
+  const recurringList = document.getElementById("recurring-list");
+  const recurringListEmpty = document.getElementById("recurring-list-empty");
 
   const statusPopover = document.getElementById("status-popover");
 
@@ -290,7 +308,6 @@
 
     function openPopoverAt(anchorRect) {
       closeAllDateTimePopovers();
-      closeNotesPopup();
       closeStatusPopover();
       popover.hidden = false;
       popover.style.top = `${anchorRect.bottom + 6}px`;
@@ -372,6 +389,23 @@
       const isOverdue = task.status === "in_progress" && new Date(task.due_time) < now;
       if (isOverdue) tr.classList.add("overdue");
 
+      // Expand cell (notes disclosure triangle)
+      const tdExpand = document.createElement("td");
+      tdExpand.className = "expand-cell";
+      if (task.notes) {
+        const isExpanded = state.expandedIds.has(task.id);
+        const expandBtn = document.createElement("button");
+        expandBtn.type = "button";
+        expandBtn.className = "expand-btn";
+        expandBtn.textContent = isExpanded ? "▼" : "▶";
+        expandBtn.setAttribute("aria-label", isExpanded ? "Hide notes" : "Show notes");
+        expandBtn.addEventListener("click", (e) => {
+          e.stopPropagation();
+          toggleExpanded(task.id);
+        });
+        tdExpand.appendChild(expandBtn);
+      }
+
       // Name cell
       const tdName = document.createElement("td");
       if (editingNameId === task.id) {
@@ -404,17 +438,12 @@
           render();
         });
         tdName.appendChild(nameBtn);
-        if (task.notes) {
-          const notesIcon = document.createElement("button");
-          notesIcon.type = "button";
-          notesIcon.className = "notes-indicator";
-          notesIcon.textContent = "📝";
-          notesIcon.setAttribute("aria-label", "View notes");
-          notesIcon.addEventListener("click", (e) => {
-            e.stopPropagation();
-            openNotesPopup(notesIcon, task);
-          });
-          tdName.appendChild(notesIcon);
+        if (task.recurring_task_id) {
+          const recurringIcon = document.createElement("span");
+          recurringIcon.className = "recurring-indicator";
+          recurringIcon.textContent = "↻";
+          recurringIcon.title = "Recurring task";
+          tdName.appendChild(recurringIcon);
         }
       }
 
@@ -425,10 +454,18 @@
       dueBtn.type = "button";
       dueBtn.className = "due-cell-btn";
       dueBtn.textContent = formatDue(task.due_time);
-      dueBtn.addEventListener("click", (e) => {
-        e.stopPropagation();
-        openInlineDuePicker(dueBtn, task);
-      });
+      if (task.recurring_task_id) {
+        dueBtn.title = "Click to edit recurring schedule";
+        dueBtn.addEventListener("click", (e) => {
+          e.stopPropagation();
+          openEditRecurringModalForTask(task);
+        });
+      } else {
+        dueBtn.addEventListener("click", (e) => {
+          e.stopPropagation();
+          openInlineDuePicker(dueBtn, task);
+        });
+      }
       tdDue.appendChild(dueBtn);
 
       // Status cell
@@ -448,9 +485,13 @@
       const actionsWrap = document.createElement("div");
       actionsWrap.className = "row-actions";
 
-      const editBtn = iconButton("✎", "icon-edit", "Edit notes", (e) => {
+      const editBtn = iconButton("✎", "icon-edit", "Edit task", (e) => {
         e.stopPropagation();
-        openEditNotesModal(task);
+        if (task.recurring_task_id) {
+          openEditRecurringModalForTask(task, { fullEdit: true });
+        } else {
+          openEditTaskModal(task);
+        }
       });
       const completeBtn = iconButton("✓", "icon-complete", "Mark complete", (e) => {
         e.stopPropagation();
@@ -468,12 +509,22 @@
       actionsWrap.append(editBtn, completeBtn, cancelBtn, deleteBtn);
       tdActions.appendChild(actionsWrap);
 
-      tr.append(tdName, tdDue, tdStatus, tdActions);
+      tr.append(tdExpand, tdName, tdDue, tdStatus, tdActions);
 
       // Row selection: clicking whitespace (the row itself, not interactive children)
       tr.addEventListener("click", () => toggleSelection(task.id));
 
       taskListEl.appendChild(tr);
+
+      if (task.notes && state.expandedIds.has(task.id)) {
+        const noteRow = document.createElement("tr");
+        noteRow.className = "note-row";
+        const noteCell = document.createElement("td");
+        noteCell.colSpan = 5;
+        linkifyNotes(noteCell, task.notes);
+        noteRow.appendChild(noteCell);
+        taskListEl.appendChild(noteRow);
+      }
     }
 
     if (editingNameId !== null) {
@@ -501,6 +552,15 @@
       state.selectedIds.delete(id);
     } else {
       state.selectedIds.add(id);
+    }
+    render();
+  }
+
+  function toggleExpanded(id) {
+    if (state.expandedIds.has(id)) {
+      state.expandedIds.delete(id);
+    } else {
+      state.expandedIds.add(id);
     }
     render();
   }
@@ -544,7 +604,6 @@
 
   // ---------- Modal helpers ----------
   function openModal(modalEl) {
-    closeNotesPopup();
     closeAllDateTimePopovers();
     closeStatusPopover();
     modalEl.hidden = false;
@@ -578,11 +637,10 @@
       cancelNameEdit();
       return;
     }
-    closeNotesPopup();
     closeStatusPopover();
   });
 
-  // ---------- Notes popup ----------
+  // ---------- Notes rendering (used by the expandable note row) ----------
   function linkifyNotes(container, text) {
     container.textContent = "";
     const urlPattern = /https?:\/\/[^\s]+/g;
@@ -604,30 +662,6 @@
     }
     container.appendChild(document.createTextNode(text.slice(lastIndex)));
   }
-
-  function openNotesPopup(anchorEl, task) {
-    if (!task.notes) return;
-    linkifyNotes(notesPopupContent, task.notes);
-    notesPopup.hidden = false;
-    const rect = anchorEl.getBoundingClientRect();
-    notesPopup.style.top = `${rect.bottom + 6}px`;
-    notesPopup.style.left = `${rect.left}px`;
-    requestAnimationFrame(() => {
-      const popupRect = notesPopup.getBoundingClientRect();
-      const overflow = popupRect.right - (window.innerWidth - 8);
-      if (overflow > 0) {
-        notesPopup.style.left = `${Math.max(8, rect.left - overflow)}px`;
-      }
-    });
-  }
-
-  function closeNotesPopup() {
-    notesPopup.hidden = true;
-  }
-
-  document.addEventListener("click", (e) => {
-    if (!notesPopup.hidden && !notesPopup.contains(e.target)) closeNotesPopup();
-  });
 
   // ---------- New task modal ----------
   const newTaskDuePicker = createDateTimePicker({ container: newTaskDueField });
@@ -673,6 +707,7 @@
       pendingPreset = item.dataset.preset;
       quickAddPresetLabel.textContent = `(${PRESET_LABELS[pendingPreset]})`;
       quickAddName.value = "";
+      quickAddNotes.value = "";
       quickAddError.hidden = true;
       quickAddMenu.hidden = true;
       openModal(modalQuickAdd);
@@ -688,13 +723,14 @@
 
   quickAddSave.addEventListener("click", async () => {
     const name = quickAddName.value.trim();
+    const notes = quickAddNotes.value.trim();
     if (!name) {
       quickAddError.textContent = "Please enter a task name.";
       quickAddError.hidden = false;
       return;
     }
     try {
-      await apiSend("/api/tasks/quick", "POST", { name, preset: pendingPreset });
+      await apiSend("/api/tasks/quick", "POST", { name, preset: pendingPreset, notes });
       closeModal(modalQuickAdd);
       await loadTasks();
     } catch (err) {
@@ -703,26 +739,373 @@
     }
   });
 
-  // ---------- Edit notes modal ----------
-  function openEditNotesModal(task) {
+  // ---------- Edit task modal (one-time tasks: name, due date, notes) ----------
+  const editTaskDuePicker = createDateTimePicker({ container: editDueField });
+
+  function openEditTaskModal(task) {
     editingTaskId = task.id;
-    editDueTaskName.textContent = task.name;
+    editTaskNameInput.value = task.name;
+    editTaskDuePicker.setISOString(task.due_time);
     editNotesInput.value = task.notes || "";
     editDueError.hidden = true;
     openModal(modalEditDue);
-    editNotesInput.focus();
+    editTaskNameInput.focus();
   }
 
   editDueSave.addEventListener("click", async () => {
+    const name = editTaskNameInput.value.trim();
+    const due = editTaskDuePicker.getISOString();
     const notes = editNotesInput.value.trim();
+    if (!name) {
+      editDueError.textContent = "Please enter a task name.";
+      editDueError.hidden = false;
+      return;
+    }
+    if (!due) {
+      editDueError.textContent = "Please choose a due date.";
+      editDueError.hidden = false;
+      return;
+    }
     try {
-      await apiSend(`/api/tasks/${editingTaskId}`, "PATCH", { notes });
+      await apiSend(`/api/tasks/${editingTaskId}`, "PATCH", { name, due_time: due, notes });
       closeModal(modalEditDue);
       await loadTasks();
     } catch (err) {
       editDueError.textContent = err.message;
       editDueError.hidden = false;
     }
+  });
+
+  // ---------- Recurring tasks ----------
+  const WEEKDAY_FULL_LABELS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+  const RECURRING_TYPE_LABELS = {
+    daily: "1 or N times every day",
+    weekly: "days in a week",
+    monthly: "days in a month",
+  };
+
+  function createTimeSelect(initialHHMM) {
+    const wrap = document.createElement("div");
+    wrap.className = "time-select-group";
+
+    const hourSelect = document.createElement("select");
+    hourSelect.className = "datetime-select";
+    for (let h = 1; h <= 12; h++) {
+      const opt = document.createElement("option");
+      opt.value = String(h);
+      opt.textContent = String(h);
+      hourSelect.appendChild(opt);
+    }
+    const colon = document.createElement("span");
+    colon.className = "datetime-colon";
+    colon.textContent = ":";
+    const minuteSelect = document.createElement("select");
+    minuteSelect.className = "datetime-select";
+    for (let m = 0; m < 60; m++) {
+      const opt = document.createElement("option");
+      opt.value = String(m);
+      opt.textContent = String(m).padStart(2, "0");
+      minuteSelect.appendChild(opt);
+    }
+    const ampmSelect = document.createElement("select");
+    ampmSelect.className = "datetime-select";
+    ["AM", "PM"].forEach((v) => {
+      const opt = document.createElement("option");
+      opt.value = v;
+      opt.textContent = v;
+      ampmSelect.appendChild(opt);
+    });
+    wrap.append(hourSelect, colon, minuteSelect, ampmSelect);
+
+    function setValue(hhmm) {
+      const [hh, mm] = hhmm.split(":").map(Number);
+      let hour12 = hh % 12;
+      if (hour12 === 0) hour12 = 12;
+      hourSelect.value = String(hour12);
+      minuteSelect.value = String(mm);
+      ampmSelect.value = hh >= 12 ? "PM" : "AM";
+    }
+    function getValue() {
+      let hour12 = parseInt(hourSelect.value, 10);
+      const minute = parseInt(minuteSelect.value, 10);
+      let hour24 = hour12 % 12;
+      if (ampmSelect.value === "PM") hour24 += 12;
+      return `${String(hour24).padStart(2, "0")}:${String(minute).padStart(2, "0")}`;
+    }
+    setValue(initialHHMM || "09:00");
+
+    return { el: wrap, getValue, setValue };
+  }
+
+  function buildDailyScheduleFields(container, initialTimes) {
+    const timeRows = [];
+    const list = document.createElement("div");
+    list.className = "recurring-time-list";
+    container.appendChild(list);
+
+    const addBtn = document.createElement("button");
+    addBtn.type = "button";
+    addBtn.className = "btn recurring-add-time";
+    addBtn.textContent = "+ Add another time";
+    container.appendChild(addBtn);
+
+    function updateRemoveButtons() {
+      list.querySelectorAll(".recurring-remove-time").forEach((btn) => {
+        btn.hidden = timeRows.length <= 1;
+      });
+    }
+
+    function addRow(initial) {
+      const row = document.createElement("div");
+      row.className = "recurring-time-row";
+      const timeSelect = createTimeSelect(initial);
+      const removeBtn = document.createElement("button");
+      removeBtn.type = "button";
+      removeBtn.className = "recurring-remove-time";
+      removeBtn.textContent = "✕";
+      removeBtn.addEventListener("click", () => {
+        if (timeRows.length <= 1) return;
+        const idx = timeRows.findIndex((r) => r.rowEl === row);
+        if (idx !== -1) timeRows.splice(idx, 1);
+        row.remove();
+        updateRemoveButtons();
+      });
+      row.append(timeSelect.el, removeBtn);
+      list.appendChild(row);
+      timeRows.push({ rowEl: row, timeSelect });
+      updateRemoveButtons();
+    }
+
+    addBtn.addEventListener("click", () => addRow("09:00"));
+    const seedTimes = initialTimes && initialTimes.length ? initialTimes : ["09:00"];
+    seedTimes.forEach((t) => addRow(t));
+
+    return {
+      getSchedule() {
+        return { times: timeRows.map((r) => r.timeSelect.getValue()) };
+      },
+    };
+  }
+
+  function buildDayToggleSchedule(container, dayLabels, dayValues, gridClass, initial) {
+    const toggles = [];
+    const grid = document.createElement("div");
+    grid.className = `recurring-day-toggles ${gridClass}`;
+    const initialDays = (initial && initial.days) || [];
+    dayLabels.forEach((label, i) => {
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "day-toggle";
+      btn.textContent = label;
+      if (initialDays.includes(dayValues[i])) btn.classList.add("is-selected");
+      btn.addEventListener("click", () => btn.classList.toggle("is-selected"));
+      grid.appendChild(btn);
+      toggles.push({ value: dayValues[i], btn });
+    });
+    container.appendChild(grid);
+
+    const timeSelect = createTimeSelect((initial && initial.time) || "09:00");
+    const timeWrap = document.createElement("div");
+    timeWrap.className = "recurring-time-row";
+    timeWrap.appendChild(timeSelect.el);
+    container.appendChild(timeWrap);
+
+    return {
+      getSchedule() {
+        const days = toggles.filter((d) => d.btn.classList.contains("is-selected")).map((d) => d.value);
+        return { days, time: timeSelect.getValue() };
+      },
+    };
+  }
+
+  function buildWeeklyScheduleFields(container, initial) {
+    return buildDayToggleSchedule(
+      container,
+      WEEKDAY_FULL_LABELS,
+      [0, 1, 2, 3, 4, 5, 6],
+      "recurring-weekday-toggles",
+      initial
+    );
+  }
+
+  function buildMonthlyScheduleFields(container, initial) {
+    const values = Array.from({ length: 31 }, (_, i) => i + 1);
+    return buildDayToggleSchedule(container, values, values, "recurring-monthday-toggles", initial);
+  }
+
+  let recurringScheduleType = null;
+  let currentScheduleBuilder = null;
+  let editingRecurringId = null;
+  let recurringFullEdit = false;
+
+  function openRecurringModal(scheduleType, opts = {}) {
+    recurringScheduleType = scheduleType;
+    editingRecurringId = opts.editId || null;
+    recurringFullEdit = !!opts.fullEdit;
+    recurringName.value = opts.name || "";
+    recurringNotes.value = opts.notes || "";
+    recurringError.hidden = true;
+    recurringModalHeading.textContent = editingRecurringId ? "Edit Recurring Task" : "New Recurring Task";
+    recurringSave.textContent = editingRecurringId ? "Save Changes" : "Create Recurring Task";
+    recurringTypeLabel.textContent = `(${RECURRING_TYPE_LABELS[scheduleType]})`;
+
+    // Editing via the due-date shortcut only changes the schedule; editing via
+    // the ✎ button (fullEdit) also lets you change the name and notes.
+    const scheduleOnly = !!editingRecurringId && !recurringFullEdit;
+    recurringNameField.hidden = scheduleOnly;
+    recurringNotesField.hidden = scheduleOnly;
+    recurringEditTaskName.hidden = !scheduleOnly;
+    recurringEditTaskName.textContent = scheduleOnly ? opts.name || "" : "";
+
+    recurringScheduleFields.innerHTML = "";
+    if (scheduleType === "daily") {
+      currentScheduleBuilder = buildDailyScheduleFields(recurringScheduleFields, opts.schedule && opts.schedule.times);
+    } else if (scheduleType === "weekly") {
+      currentScheduleBuilder = buildWeeklyScheduleFields(recurringScheduleFields, opts.schedule);
+    } else {
+      currentScheduleBuilder = buildMonthlyScheduleFields(recurringScheduleFields, opts.schedule);
+    }
+    openModal(modalRecurring);
+    if (!scheduleOnly) recurringName.focus();
+  }
+
+  async function openEditRecurringModalForTask(task, opts = {}) {
+    try {
+      const rule = await apiGet(`/api/recurring/${task.recurring_task_id}`);
+      openRecurringModal(rule.schedule_type, {
+        editId: rule.id,
+        name: rule.name,
+        notes: rule.notes,
+        schedule: rule.schedule,
+        fullEdit: !!opts.fullEdit,
+      });
+    } catch (err) {
+      console.error(err);
+    }
+  }
+
+  btnRecurring.addEventListener("click", (e) => {
+    e.stopPropagation();
+    recurringMenu.hidden = !recurringMenu.hidden;
+  });
+  document.addEventListener("click", () => { recurringMenu.hidden = true; });
+
+  recurringMenu.querySelectorAll("[data-schedule-type]").forEach((item) => {
+    item.addEventListener("click", (e) => {
+      e.stopPropagation();
+      recurringMenu.hidden = true;
+      openRecurringModal(item.dataset.scheduleType);
+    });
+  });
+
+  recurringSave.addEventListener("click", async () => {
+    const needsName = !editingRecurringId || recurringFullEdit;
+    if (needsName && !recurringName.value.trim()) {
+      recurringError.textContent = "Please enter a task name.";
+      recurringError.hidden = false;
+      return;
+    }
+    const schedule = currentScheduleBuilder.getSchedule();
+    if (recurringScheduleType === "daily" && !schedule.times.length) {
+      recurringError.textContent = "Please add at least one time.";
+      recurringError.hidden = false;
+      return;
+    }
+    if (recurringScheduleType !== "daily" && !schedule.days.length) {
+      recurringError.textContent = recurringScheduleType === "weekly"
+        ? "Please select at least one day of the week."
+        : "Please select at least one day of the month.";
+      recurringError.hidden = false;
+      return;
+    }
+    try {
+      if (editingRecurringId) {
+        const payload = { schedule_type: recurringScheduleType, schedule };
+        if (recurringFullEdit) {
+          payload.name = recurringName.value.trim();
+          payload.notes = recurringNotes.value.trim();
+        }
+        await apiSend(`/api/recurring/${editingRecurringId}`, "PATCH", payload);
+      } else {
+        await apiSend("/api/recurring", "POST", {
+          name: recurringName.value.trim(),
+          notes: recurringNotes.value.trim(),
+          schedule_type: recurringScheduleType,
+          schedule,
+        });
+      }
+      closeModal(modalRecurring);
+      await loadTasks();
+    } catch (err) {
+      recurringError.textContent = err.message;
+      recurringError.hidden = false;
+    }
+  });
+
+  function formatTimeLabel(hhmm) {
+    const [hh, mm] = hhmm.split(":").map(Number);
+    const d = new Date();
+    d.setHours(hh, mm, 0, 0);
+    return d.toLocaleString(undefined, { hour: "numeric", minute: "2-digit" });
+  }
+
+  function ordinal(n) {
+    const suffixes = ["th", "st", "nd", "rd"];
+    const v = n % 100;
+    return n + (suffixes[(v - 20) % 10] || suffixes[v] || suffixes[0]);
+  }
+
+  function summarizeSchedule(item) {
+    const sched = item.schedule;
+    if (item.schedule_type === "daily") {
+      return `Daily at ${sched.times.map(formatTimeLabel).join(", ")}`;
+    }
+    if (item.schedule_type === "weekly") {
+      const names = sched.days.map((d) => WEEKDAY_FULL_LABELS[d]).join(", ");
+      return `Weekly on ${names} at ${formatTimeLabel(sched.time)}`;
+    }
+    const days = sched.days.map(ordinal).join(", ");
+    return `Monthly on the ${days} at ${formatTimeLabel(sched.time)}`;
+  }
+
+  async function refreshRecurringList() {
+    const items = await apiGet("/api/recurring");
+    recurringList.innerHTML = "";
+    recurringListEmpty.hidden = items.length > 0;
+    for (const item of items) {
+      const row = document.createElement("div");
+      row.className = "recurring-list-item";
+
+      const info = document.createElement("div");
+      info.className = "recurring-list-info";
+      const nameEl = document.createElement("div");
+      nameEl.className = "recurring-list-name";
+      nameEl.textContent = item.name;
+      const scheduleEl = document.createElement("div");
+      scheduleEl.className = "recurring-list-schedule";
+      scheduleEl.textContent = summarizeSchedule(item);
+      info.append(nameEl, scheduleEl);
+
+      const deleteBtn = document.createElement("button");
+      deleteBtn.type = "button";
+      deleteBtn.className = "icon-btn icon-delete";
+      deleteBtn.textContent = "🗑";
+      deleteBtn.title = "Delete recurring task";
+      deleteBtn.addEventListener("click", async () => {
+        await apiSend(`/api/recurring/${item.id}`, "DELETE");
+        await refreshRecurringList();
+      });
+
+      row.append(info, deleteBtn);
+      recurringList.appendChild(row);
+    }
+  }
+
+  btnManageRecurring.addEventListener("click", async (e) => {
+    e.stopPropagation();
+    recurringMenu.hidden = true;
+    await refreshRecurringList();
+    openModal(modalManageRecurring);
   });
 
   // ---------- Inline due-date editing ----------
@@ -749,7 +1132,6 @@
   let statusEditingTaskId = null;
 
   function openStatusPopover(anchorEl, task) {
-    closeNotesPopup();
     closeAllDateTimePopovers();
     statusEditingTaskId = task.id;
     statusPopover.hidden = false;
@@ -808,6 +1190,24 @@
   btnBulkComplete.addEventListener("click", () => setStatus([...state.selectedIds], "complete"));
   btnBulkCancel.addEventListener("click", () => setStatus([...state.selectedIds], "cancel"));
   btnBulkDelete.addEventListener("click", () => deleteTasks([...state.selectedIds]));
+
+  // ---------- Refresh on regaining focus ----------
+  // Catches changes made in another tab/window, or by the desktop-notification
+  // poller, while this tab was in the background.
+  function hasUnsavedInteraction() {
+    if (editingNameId !== null) return true;
+    if (document.querySelector(".modal-overlay:not([hidden])")) return true;
+    if (allDateTimePickers.some((p) => p.isOpen())) return true;
+    if (!statusPopover.hidden) return true;
+    return false;
+  }
+
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "visible" && !hasUnsavedInteraction()) loadTasks();
+  });
+  window.addEventListener("focus", () => {
+    if (!hasUnsavedInteraction()) loadTasks();
+  });
 
   // ---------- Init ----------
   loadTasks();

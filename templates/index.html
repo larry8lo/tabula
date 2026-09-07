@@ -4,6 +4,9 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Tabula</title>
+<link rel="icon" href="/static/favicon.ico" sizes="32x32">
+<link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="/static/apple-touch-icon.png">
 <link rel="stylesheet" href="/static/style.css">
 </head>
 <body>
@@ -27,6 +30,16 @@
           <button class="dropdown-item dropdown-item-custom" id="btn-quick-add-custom">Custom…</button>
         </div>
       </div>
+
+      <div class="dropdown" id="recurring-dropdown">
+        <button id="btn-recurring" class="btn btn-accent2">New Recurring Task ▾</button>
+        <div class="dropdown-menu" id="recurring-menu" hidden>
+          <button class="dropdown-item" data-schedule-type="daily">1 or N times every day</button>
+          <button class="dropdown-item" data-schedule-type="weekly">Days in a week</button>
+          <button class="dropdown-item" data-schedule-type="monthly">Days in a month</button>
+          <button class="dropdown-item dropdown-item-custom" id="btn-manage-recurring">Manage…</button>
+        </div>
+      </div>
     </div>
 
     <div class="toolbar-group toolbar-group-selection">
@@ -37,19 +50,22 @@
     </div>
   </div>
 
-  <table class="task-table">
-    <thead>
-      <tr>
-        <th class="col-name">Task</th>
-        <th class="col-due">Due</th>
-        <th class="col-status">Status</th>
-        <th class="col-actions"></th>
-      </tr>
-    </thead>
-    <tbody id="task-list">
-      <!-- rows injected by app.js -->
-    </tbody>
-  </table>
+  <div class="table-scroll">
+    <table class="task-table">
+      <thead>
+        <tr>
+          <th class="col-expand"></th>
+          <th class="col-name">Task</th>
+          <th class="col-due">Due</th>
+          <th class="col-status">Status</th>
+          <th class="col-actions"></th>
+        </tr>
+      </thead>
+      <tbody id="task-list">
+        <!-- rows injected by app.js -->
+      </tbody>
+    </table>
+  </div>
   <p id="empty-state" class="empty-state" hidden>No tasks yet. Create one above.</p>
 </div>
 
@@ -85,6 +101,10 @@
       <span>Task name</span>
       <input type="text" id="quick-add-name" placeholder="e.g. Call the dentist">
     </label>
+    <label class="field">
+      <span>Notes <span class="field-optional">(optional)</span></span>
+      <textarea id="quick-add-notes" rows="3" placeholder="Any extra detail…"></textarea>
+    </label>
     <p class="field-error" id="quick-add-error" hidden></p>
     <div class="modal-actions">
       <button class="btn" data-close-modal>Cancel</button>
@@ -93,11 +113,18 @@
   </div>
 </div>
 
-<!-- Edit notes modal -->
+<!-- Edit task modal (name, due date, notes) -->
 <div class="modal-overlay" id="modal-edit-due" hidden>
   <div class="modal">
-    <h2>Edit Notes</h2>
-    <p class="modal-subtitle" id="edit-due-task-name"></p>
+    <h2>Edit Task</h2>
+    <label class="field">
+      <span>Task name</span>
+      <input type="text" id="edit-task-name-input" placeholder="e.g. Submit expense report">
+    </label>
+    <div class="field">
+      <span>Due date &amp; time</span>
+      <div class="datetime-field" id="edit-due-field"></div>
+    </div>
     <label class="field">
       <span>Notes <span class="field-optional">(optional)</span></span>
       <textarea id="edit-notes-input" rows="3" placeholder="Any extra detail…"></textarea>
@@ -110,9 +137,41 @@
   </div>
 </div>
 
-<!-- Notes popup -->
-<div class="notes-popup" id="notes-popup" hidden>
-  <div id="notes-popup-content"></div>
+<!-- New recurring task modal -->
+<div class="modal-overlay" id="modal-recurring" hidden>
+  <div class="modal">
+    <h2><span id="recurring-modal-heading">New Recurring Task</span> <span id="recurring-type-label" class="modal-subtitle"></span></h2>
+    <p class="modal-subtitle" id="recurring-edit-task-name" hidden></p>
+    <label class="field" id="recurring-name-field">
+      <span>Task name</span>
+      <input type="text" id="recurring-name" placeholder="e.g. Take out trash">
+    </label>
+    <label class="field" id="recurring-notes-field">
+      <span>Notes <span class="field-optional">(optional)</span></span>
+      <textarea id="recurring-notes" rows="3" placeholder="Any extra detail…"></textarea>
+    </label>
+    <div class="field">
+      <span>Schedule</span>
+      <div id="recurring-schedule-fields"></div>
+    </div>
+    <p class="field-error" id="recurring-error" hidden></p>
+    <div class="modal-actions">
+      <button class="btn" data-close-modal>Cancel</button>
+      <button class="btn btn-primary" id="recurring-save">Create Recurring Task</button>
+    </div>
+  </div>
+</div>
+
+<!-- Manage recurring tasks modal -->
+<div class="modal-overlay" id="modal-manage-recurring" hidden>
+  <div class="modal">
+    <h2>Recurring Tasks</h2>
+    <div id="recurring-list"></div>
+    <p class="empty-state" id="recurring-list-empty" hidden>No recurring tasks yet.</p>
+    <div class="modal-actions">
+      <button class="btn" data-close-modal>Close</button>
+    </div>
+  </div>
 </div>
 
 <!-- Status change popover -->
