@@ -219,6 +219,13 @@ def generate_recurring_instances():
                     times = [schedule.get("time")] if d.day in schedule.get("days", []) else []
                 for t in times:
                     due_time = f"{d.isoformat()}T{t}"
+                    # The preview instance from ensure_upcoming_instance may
+                    # already exist for this occurrence; don't add a second.
+                    if db.execute(
+                        "SELECT 1 FROM tasks WHERE recurring_task_id = ? AND due_time = ? LIMIT 1",
+                        (r["id"], due_time),
+                    ).fetchone():
+                        continue
                     db.execute(
                         "INSERT INTO tasks (name, due_time, status, created_at, notes, recurring_task_id) "
                         "VALUES (?, ?, 'in_progress', ?, ?, ?)",

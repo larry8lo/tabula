@@ -94,6 +94,55 @@ first time the app starts.
 logs stdout/stderr to `~/.tabula/tabula.log`. `stop.sh` waits for a graceful
 shutdown before force-killing.
 
+## Using Tabula from Claude (MCP server)
+
+`tabula_mcp.py` is a [Model Context Protocol](https://modelcontextprotocol.io)
+server that lets Claude manage your tasks and tell you what needs attention
+("what's due today?", "remind me to call the dentist at 3pm tomorrow",
+"make the standup reminder Mon/Wed/Fri at 9:30"). It's a thin client over
+Tabula's REST API, so validation, recurring-task generation and desktop
+notifications all keep working exactly as they do in the web UI.
+
+Register it once (use the absolute path to this checkout):
+
+```bash
+# Claude Code
+claude mcp add tabula -- /absolute/path/to/tabula/mcp.sh
+```
+
+For Claude Desktop, add this to `claude_desktop_config.json` and restart it:
+
+```json
+{
+  "mcpServers": {
+    "tabula": { "command": "/absolute/path/to/tabula/mcp.sh" }
+  }
+}
+```
+
+`mcp.sh` uses the same project-local `.venv` as `start.sh` and installs the
+server's one extra dependency (`requirements-mcp.txt`, needs Python 3.10+) the
+first time it runs. If Tabula isn't running when Claude calls a tool, the
+server launches `./start.sh` for you and waits for it, so reminders and
+desktop notifications work without remembering to start the app.
+
+**Tools**
+
+| Area | Tools |
+| --- | --- |
+| Reminders | `get_reminders` (overdue + due within N hours), `get_current_time` |
+| Tasks | `list_tasks`, `create_task` (ISO time or a preset like `1h`/`eod`), `update_task`, `complete_tasks`, `cancel_tasks`, `delete_tasks` |
+| Recurring | `list_recurring_tasks`, `create_recurring_task` (daily times / weekdays / days of month), `update_recurring_task`, `delete_recurring_task` |
+
+Times are your machine's local time in ISO 8601 (`2026-11-03T14:30`; a bare
+date means 23:59 that day). Reading tools are marked read-only and deletions
+are marked destructive, so Claude clients can prompt accordingly.
+
+**Environment variables**: `TABULA_URL` (default `http://127.0.0.1:5050`) to
+point at an app running elsewhere, and `TABULA_AUTOSTART=0` to stop the server
+launching `./start.sh` on its own (auto-start only ever applies to the default
+local URL).
+
 ## Notes
 
 - Run with `python3 app.py` for local development (Flask's built-in server,
